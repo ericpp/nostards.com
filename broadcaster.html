@@ -1,0 +1,1921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nostr Event Broadcaster</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            border: 2px solid #f0f0f0;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .relay-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .relay-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .relay-item:hover {
+            border-color: #4CAF50;
+            transform: translateY(-2px);
+        }
+
+        .relay-item input[type="checkbox"] {
+            width: auto;
+            margin-right: 12px;
+            transform: scale(1.2);
+        }
+
+        .relay-item label {
+            margin: 0;
+            font-weight: normal;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.3);
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .broadcast-results {
+            margin-top: 20px;
+        }
+
+        .result-item {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid;
+            font-family: 'Courier New', monospace;
+        }
+
+        .result-success {
+            background: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+
+        .result-error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+
+        .result-warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+            color: #856404;
+        }
+
+        .relay-url {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .relay-response {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 5px;
+            word-break: break-all;
+            font-size: 13px;
+        }
+
+        .json-diff {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .json-diff-highlight {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #856404;
+            font-weight: bold;
+        }
+
+        .json-diff-unique {
+            background: #f8d7da;
+            border: 1px solid #dc3545;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #721c24;
+            font-weight: bold;
+        }
+
+        .json-diff-same {
+            color: #6c757d;
+        }
+
+        /* Color-coded highlighting for different values - avoiding green */
+        .json-diff-value-0 {
+            background: #cce5ff;
+            border: 1px solid #007bff;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #004085;
+            font-weight: bold;
+        }
+
+        .json-diff-value-1 {
+            background: #fff8e1;
+            border: 1px solid #ff9800;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #e65100;
+            font-weight: bold;
+        }
+
+        .json-diff-value-2 {
+            background: #f3e5f5;
+            border: 1px solid #9c27b0;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #4a148c;
+            font-weight: bold;
+        }
+
+        .json-diff-value-3 {
+            background: #e1f5fe;
+            border: 1px solid #00bcd4;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #006064;
+            font-weight: bold;
+        }
+
+        .json-diff-value-4 {
+            background: #fce4ec;
+            border: 1px solid #e91e63;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #880e4f;
+            font-weight: bold;
+        }
+
+        .json-diff-value-5 {
+            background: #f1f8e9;
+            border: 1px solid #8bc34a;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #33691e;
+            font-weight: bold;
+        }
+
+        .diff-summary {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+
+        .diff-summary h4 {
+            margin: 0 0 8px 0;
+            color: #495057;
+            font-size: 14px;
+        }
+
+        .verification-section {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .verification-status {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .verification-success {
+            color: #155724;
+        }
+
+        .verification-error {
+            color: #721c24;
+        }
+
+        .verification-pending {
+            color: #0c5460;
+        }
+
+        .decode-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background: white;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .decode-table th,
+        .decode-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .decode-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+            min-width: 120px;
+        }
+
+        .decode-table td {
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+        }
+
+        .decode-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .decode-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .relay-list-cell {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .relay-list-cell         .relay-item-small {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin: 2px 0;
+            display: inline-block;
+            font-size: 12px;
+        }
+
+        .broadcast-button {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .broadcast-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(40, 167, 69, 0.3);
+        }
+
+        .broadcast-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .broadcast-progress {
+            font-size: 10px;
+            color: #6c757d;
+            margin-left: 10px;
+            font-style: italic;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Nostr Event Broadcaster</h1>
+            <p>Broadcast Nostr events to multiple relays with ease</p>
+        </div>
+
+        <div class="main-content">
+            <div class="section">
+                <h2>🌐 Relay Selection</h2>
+                <div class="form-group">
+                    <label for="customRelay">Add Custom Relay:</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="customRelay" placeholder="wss://relay.example.com">
+                        <button class="btn" onclick="addCustomRelay()" style="white-space: nowrap;">➕ Add</button>
+                    </div>
+                </div>
+                
+                <div class="relay-list" id="relayList">
+                    <!-- Popular relays will be populated here -->
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-secondary" onclick="selectAllRelays()">✅ Select All</button>
+                    <button class="btn btn-secondary" onclick="deselectAllRelays()">❌ Deselect All</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>📥 Load Event by naddr</h2>
+                <div class="form-group">
+                    <label for="naddrInput">Nostr Address (naddr):</label>
+                    <input type="text" id="naddrInput" placeholder="naddr1qqxnzdesxqmnyv4ezqun9d35hguewvdhk6tcpr4mhxue69uhkummnw3ez6ur4vgh8wetvd3hhyer9wghxuet5sh6r3j">
+                </div>
+                <button class="btn btn-secondary" onclick="decodeNaddrOnly()">🔍 Decode Only</button>
+                <button class="btn btn-secondary" onclick="loadEventByNaddr()">📡 Load from Selected Relays</button>
+                <button class="btn btn-secondary" onclick="clearNaddrResults()">🗑️ Clear Results</button>
+                
+                <div id="naddrStatus" class="status"></div>
+                <div id="naddrResults" class="broadcast-results"></div>
+            </div>
+
+            <div class="section">
+                <h2>📝 Event Input</h2>
+                <div class="form-group">
+                    <label for="eventInput">Nostr Event JSON:</label>
+                    <textarea id="eventInput" placeholder="Paste your Nostr event JSON here...
+Example:
+{
+  &quot;id&quot;: &quot;event_id_here&quot;,
+  &quot;pubkey&quot;: &quot;public_key_here&quot;,
+  &quot;created_at&quot;: 1234567890,
+  &quot;kind&quot;: 1,
+  &quot;tags&quot;: [],
+  &quot;content&quot;: &quot;Hello Nostr!&quot;,
+  &quot;sig&quot;: &quot;signature_here&quot;
+}"></textarea>
+                </div>
+                <button class="btn btn-secondary" onclick="validateEvent()">🔍 Validate Event</button>
+                <button class="btn btn-secondary" onclick="clearEvent()">🗑️ Clear</button>
+            </div>
+
+            <div class="section">
+                <h2>🚀 Broadcasting</h2>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="verifyAfterBroadcast" checked style="width: auto; margin-right: 8px;">
+                        Verify event after broadcasting (fetch back from relays)
+                    </label>
+                </div>
+                <button class="btn" id="broadcastBtn" onclick="broadcastEvent()">
+                    📡 Broadcast to Selected Relays
+                </button>
+                
+                <div id="status" class="status"></div>
+                <div id="broadcastResults" class="broadcast-results"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include nostr-tools library -->
+    <script src="https://unpkg.com/nostr-tools@2.1.0/lib/nostr.bundle.js"></script>
+    
+    <script>
+        // Popular Nostr relays (normalized - no trailing slashes)
+        const popularRelays = [
+            'wss://relay.damus.io',
+            'wss://nos.lol',
+            'wss://relay.nostr.band',
+            'wss://relay.snort.social',
+            'wss://nostr.wine',
+            'wss://nostr-pub.wellorder.net',
+            'wss://nostr.mom',
+            'wss://nostr.oxtr.dev',
+            'wss://relay.fountain.fm',
+        ];
+
+        let customRelays = [];
+
+        // Initialize the page
+        function init() {
+            loadSavedSettings();
+            populateRelayList();
+        }
+
+        function populateRelayList() {
+            const relayList = document.getElementById('relayList');
+            relayList.innerHTML = '';
+
+            // Add popular relays
+            popularRelays.forEach(relay => {
+                addRelayToList(relay, false);
+            });
+
+            // Add custom relays
+            customRelays.forEach(relay => {
+                addRelayToList(relay, true);
+            });
+        }
+
+        function addRelayToList(relayUrl, isCustom) {
+            const relayList = document.getElementById('relayList');
+            const relayItem = document.createElement('div');
+            relayItem.className = 'relay-item';
+            
+            relayItem.innerHTML = `
+                <input type="checkbox" id="relay_${encodeURIComponent(relayUrl)}" value="${relayUrl}">
+                <label for="relay_${encodeURIComponent(relayUrl)}">${relayUrl}</label>
+                ${isCustom ? `<button class="btn" style="margin-left: auto; padding: 5px 10px; font-size: 12px;" onclick="removeCustomRelay('${relayUrl}')">❌</button>` : ''}
+            `;
+            
+            relayList.appendChild(relayItem);
+        }
+
+        function normalizeRelayUrl(url) {
+            // Trim whitespace
+            url = url.trim();
+            
+            // Remove trailing slash if present
+            if (url.endsWith('/')) {
+                url = url.slice(0, -1);
+            }
+            
+            return url;
+        }
+
+        function addCustomRelay() {
+            const input = document.getElementById('customRelay');
+            const rawRelayUrl = input.value;
+            
+            // Normalize the URL
+            const relayUrl = normalizeRelayUrl(rawRelayUrl);
+            
+            if (!relayUrl) {
+                showStatus('Please enter a relay URL', 'error');
+                return;
+            }
+
+            if (!relayUrl.startsWith('ws://') && !relayUrl.startsWith('wss://')) {
+                showStatus('Relay URL must start with ws:// or wss://', 'error');
+                return;
+            }
+
+            // Normalize popular relays for comparison
+            const normalizedPopularRelays = popularRelays.map(normalizeRelayUrl);
+            const normalizedCustomRelays = customRelays.map(normalizeRelayUrl);
+
+            if (normalizedPopularRelays.includes(relayUrl) || normalizedCustomRelays.includes(relayUrl)) {
+                showStatus('Relay already exists in the list', 'error');
+                return;
+            }
+
+            customRelays.push(relayUrl);
+            addRelayToList(relayUrl, true);
+            input.value = '';
+            saveSettings();
+            showStatus('Custom relay added successfully', 'success');
+        }
+
+        function removeCustomRelay(relayUrl) {
+            customRelays = customRelays.filter(r => r !== relayUrl);
+            populateRelayList();
+            saveSettings();
+            showStatus('Custom relay removed', 'info');
+        }
+
+        function selectAllRelays() {
+            const checkboxes = document.querySelectorAll('#relayList input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = true);
+        }
+
+        function deselectAllRelays() {
+            const checkboxes = document.querySelectorAll('#relayList input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+        }
+
+        function validateEvent() {
+            const eventInput = document.getElementById('eventInput');
+            const eventText = eventInput.value.trim();
+
+            if (!eventText) {
+                showStatus('Please enter an event to validate', 'error');
+                return;
+            }
+
+            try {
+                const event = JSON.parse(eventText);
+                
+                // Basic validation
+                const requiredFields = ['id', 'pubkey', 'created_at', 'kind', 'tags', 'content', 'sig'];
+                const missingFields = requiredFields.filter(field => !(field in event));
+                
+                if (missingFields.length > 0) {
+                    showStatus(`Missing required fields: ${missingFields.join(', ')}`, 'error');
+                    return;
+                }
+
+                // Validate field types
+                if (typeof event.id !== 'string' || typeof event.pubkey !== 'string' || 
+                    typeof event.sig !== 'string' || typeof event.content !== 'string') {
+                    showStatus('Invalid field types: id, pubkey, sig, and content must be strings', 'error');
+                    return;
+                }
+
+                if (typeof event.created_at !== 'number' || typeof event.kind !== 'number') {
+                    showStatus('Invalid field types: created_at and kind must be numbers', 'error');
+                    return;
+                }
+
+                if (!Array.isArray(event.tags)) {
+                    showStatus('Invalid field type: tags must be an array', 'error');
+                    return;
+                }
+
+                showStatus('✅ Event is valid and ready for broadcasting!', 'success');
+            } catch (error) {
+                showStatus(`Invalid JSON: ${error.message}`, 'error');
+            }
+        }
+
+        function clearEvent() {
+            document.getElementById('eventInput').value = '';
+            document.getElementById('status').style.display = 'none';
+            document.getElementById('broadcastResults').innerHTML = '';
+        }
+
+        function clearNaddrResults() {
+            document.getElementById('naddrInput').value = '';
+            document.getElementById('naddrStatus').style.display = 'none';
+            document.getElementById('naddrResults').innerHTML = '';
+        }
+
+        // Improved bech32 decoding functions for naddr
+        const BECH32_ALPHABET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+        
+        function bech32Polymod(values) {
+            const generator = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+            let chk = 1;
+            for (const value of values) {
+                const top = chk >> 25;
+                chk = (chk & 0x1ffffff) << 5 ^ value;
+                for (let i = 0; i < 5; i++) {
+                    chk ^= ((top >> i) & 1) ? generator[i] : 0;
+                }
+            }
+            return chk;
+        }
+        
+        function bech32HrpExpand(hrp) {
+            const ret = [];
+            for (let p = 0; p < hrp.length; p++) {
+                ret.push(hrp.charCodeAt(p) >> 5);
+            }
+            ret.push(0);
+            for (let p = 0; p < hrp.length; p++) {
+                ret.push(hrp.charCodeAt(p) & 31);
+            }
+            return ret;
+        }
+        
+        function bech32VerifyChecksum(hrp, data) {
+            return bech32Polymod(bech32HrpExpand(hrp).concat(data)) === 1;
+        }
+        
+        function bech32Decode(bech) {
+            if (bech.length < 8) throw new Error('Bech32 string too short');
+            if (bech !== bech.toLowerCase() && bech !== bech.toUpperCase()) {
+                throw new Error('Mixed case bech32 string');
+            }
+            bech = bech.toLowerCase();
+            
+            const pos = bech.lastIndexOf('1');
+            if (pos < 1 || pos + 7 > bech.length) {
+                throw new Error('Invalid bech32 string format');
+            }
+            
+            const hrp = bech.substring(0, pos);
+            const data = [];
+            
+            for (let i = pos + 1; i < bech.length; i++) {
+                const d = BECH32_ALPHABET.indexOf(bech[i]);
+                if (d === -1) throw new Error('Invalid character in bech32 string');
+                data.push(d);
+            }
+            
+            if (!bech32VerifyChecksum(hrp, data)) {
+                throw new Error('Invalid bech32 checksum');
+            }
+            
+            return { hrp, data: data.slice(0, -6) };
+        }
+
+        function convertBits(data, fromBits, toBits, pad = true) {
+            let acc = 0;
+            let bits = 0;
+            const ret = [];
+            const maxv = (1 << toBits) - 1;
+            
+            for (const value of data) {
+                if (value < 0 || (value >> fromBits) !== 0) {
+                    throw new Error('Invalid data for base conversion');
+                }
+                acc = (acc << fromBits) | value;
+                bits += fromBits;
+                while (bits >= toBits) {
+                    bits -= toBits;
+                    ret.push((acc >> bits) & maxv);
+                }
+            }
+            
+            if (pad) {
+                if (bits > 0) {
+                    ret.push((acc << (toBits - bits)) & maxv);
+                }
+            } else if (bits >= fromBits || ((acc << (toBits - bits)) & maxv)) {
+                throw new Error('Invalid padding in base conversion');
+            }
+            
+            return ret;
+        }
+
+        function decodeNaddr(naddr) {
+            try {
+                const { hrp, data } = bech32Decode(naddr);
+                
+                if (hrp !== 'naddr') {
+                    throw new Error('Not a valid naddr (wrong HRP)');
+                }
+                
+                const decoded = convertBits(data, 5, 8, false);
+                const bytes = new Uint8Array(decoded);
+                
+                let pos = 0;
+                const result = { relays: [] };
+                
+                // Optional debug logging (can be enabled if needed)
+                // console.log('Decoded bytes length:', bytes.length);
+                // console.log('First 20 bytes:', Array.from(bytes.slice(0, 20)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+                
+                while (pos < bytes.length) {
+                    if (pos + 1 >= bytes.length) break;
+                    
+                    const tlvType = bytes[pos];
+                    const tlvLength = bytes[pos + 1];
+                    
+                    // console.log(`TLV at pos ${pos}: type=${tlvType}, length=${tlvLength}`);
+                    
+                    if (pos + 2 + tlvLength > bytes.length) {
+                        console.log('TLV length exceeds available bytes, breaking');
+                        break;
+                    }
+                    
+                    const tlvValue = bytes.slice(pos + 2, pos + 2 + tlvLength);
+                    
+                    if (tlvType === 0) { // This appears to be the identifier (as hex-encoded string)
+                        // The identifier appears to be hex-encoded in type 0
+                        const hexString = Array.from(tlvValue).map(b => b.toString(16).padStart(2, '0')).join('');
+                        try {
+                            // Convert hex to ASCII to get the UUID
+                            const identifier = hexString.match(/.{2}/g).map(hex => String.fromCharCode(parseInt(hex, 16))).join('');
+                            result.identifier = identifier;
+                        } catch (e) {
+                            console.warn('Could not decode type 0 as identifier:', hexString);
+                        }
+                    } else if (tlvType === 1) { // relay URLs
+                        const relayUrl = new TextDecoder().decode(tlvValue);
+                        result.relays.push(relayUrl);
+                    } else if (tlvType === 2) { // This is the pubkey (32 bytes)
+                        if (tlvLength === 32) {
+                            result.pubkey = Array.from(tlvValue).map(b => b.toString(16).padStart(2, '0')).join('');
+                        } else {
+                            // Fallback: try as relay URL
+                            const relayUrl = new TextDecoder().decode(tlvValue);
+                            result.relays.push(relayUrl);
+                        }
+                    } else if (tlvType === 3) { // kind 
+                        if (tlvLength >= 4) {
+                            // Try different interpretations
+                            const littleEndian4 = tlvValue[0] | (tlvValue[1] << 8) | (tlvValue[2] << 16) | (tlvValue[3] << 24);
+                            const bigEndian4 = (tlvValue[0] << 24) | (tlvValue[1] << 16) | (tlvValue[2] << 8) | tlvValue[3];
+                            
+                            // Prefer big-endian if it gives a reasonable kind number
+                            if (bigEndian4 > 0 && bigEndian4 < 65536) {
+                                result.kind = bigEndian4;
+                            } else {
+                                result.kind = littleEndian4;
+                            }
+                        } else if (tlvLength >= 2) {
+                            result.kind = (tlvValue[0] << 8) | tlvValue[1]; // big-endian 2-byte
+                        } else if (tlvLength >= 1) {
+                            result.kind = tlvValue[0];
+                        }
+                    }
+                    
+                    pos += 2 + tlvLength;
+                }
+                
+                // Debug: console.log('Final result:', result);
+                
+                // Validate required fields
+                if (!result.pubkey) {
+                    throw new Error('Missing pubkey in naddr');
+                }
+                if (result.kind === undefined) {
+                    throw new Error('Missing kind in naddr');
+                }
+                if (!result.identifier) {
+                    throw new Error('Missing identifier in naddr');
+                }
+                
+                return result;
+            } catch (error) {
+                throw new Error(`Failed to decode naddr: ${error.message}`);
+            }
+        }
+
+        function decodeNaddrOnly() {
+            const naddrInput = document.getElementById('naddrInput');
+            const naddrText = naddrInput.value.trim();
+
+            if (!naddrText) {
+                showNaddrStatus('Please enter an naddr to decode', 'error');
+                return;
+            }
+
+            let naddrData;
+            try {
+                naddrData = decodeNaddr(naddrText);
+                showNaddrStatus('✅ naddr decoded successfully!', 'success');
+                displayNaddrTable(naddrData);
+            } catch (error) {
+                showNaddrStatus(`Failed to decode naddr: ${error.message}`, 'error');
+                return;
+            }
+        }
+
+        function displayNaddrTable(naddrData) {
+            const resultsDiv = document.getElementById('naddrResults');
+            
+            // Format relays list
+            const relaysHtml = naddrData.relays.length > 0 
+                ? naddrData.relays.map(relay => `<div class="relay-item-small">${relay}</div>`).join('')
+                : '<em>No relays specified</em>';
+
+            // Create table HTML
+            const tableHtml = `
+                <table class="decode-table">
+                    <tbody>
+                        <tr>
+                            <th>Type</th>
+                            <td>naddr (Nostr Address)</td>
+                        </tr>
+                        <tr>
+                            <th>Kind</th>
+                            <td>${naddrData.kind}</td>
+                        </tr>
+                        <tr>
+                            <th>Public Key</th>
+                            <td>${naddrData.pubkey}</td>
+                        </tr>
+                        <tr>
+                            <th>Identifier</th>
+                            <td>${naddrData.identifier}</td>
+                        </tr>
+                        <tr>
+                            <th>Relays</th>
+                            <td class="relay-list-cell">${relaysHtml}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+
+            resultsDiv.innerHTML = tableHtml;
+        }
+
+        async function loadEventByNaddr() {
+            const naddrInput = document.getElementById('naddrInput');
+            const naddrText = naddrInput.value.trim();
+
+            if (!naddrText) {
+                showNaddrStatus('Please enter an naddr to load', 'error');
+                return;
+            }
+
+            let naddrData;
+            try {
+                naddrData = decodeNaddr(naddrText);
+                showNaddrStatus(`Decoded naddr: kind=${naddrData.kind}, pubkey=${naddrData.pubkey?.substring(0,16)}..., identifier="${naddrData.identifier}"`, 'info');
+            } catch (error) {
+                showNaddrStatus(`Failed to decode naddr: ${error.message}`, 'error');
+                return;
+            }
+
+            // Get selected relays
+            const selectedRelays = Array.from(document.querySelectorAll('#relayList input[type="checkbox"]:checked'))
+                .map(cb => cb.value);
+
+            if (selectedRelays.length === 0) {
+                showNaddrStatus('Please select at least one relay', 'error');
+                return;
+            }
+
+            showNaddrStatus(`Searching for event in ${selectedRelays.length} relays...`, 'info');
+            
+            const resultsDiv = document.getElementById('naddrResults');
+            resultsDiv.innerHTML = '';
+
+            // Query each relay
+            for (const relayUrl of selectedRelays) {
+                const resultItem = document.createElement('div');
+                resultsDiv.appendChild(resultItem);
+                
+                try {
+                    const result = await queryEventByNaddr(relayUrl, naddrData);
+                    
+                    if (result.found) {
+                        resultItem.className = 'result-item result-success';
+                        resultItem.dataset.relayUrl = relayUrl;
+                        resultItem.dataset.eventData = JSON.stringify(result.event);
+                        
+                        const buttonId = `broadcast-btn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                        resultItem.innerHTML = `
+                            <div class="relay-url">
+                                ✅ ${relayUrl}
+                                <button class="broadcast-button" id="${buttonId}" onclick="broadcastEventToOtherRelays('${relayUrl}', this)">
+                                    📡 Broadcast to Other Relays
+                                </button>
+                                <span class="broadcast-progress" id="${buttonId}-progress" style="display: none;"></span>
+                            </div>
+                            <div class="relay-response json-diff">Found event: <span class="event-content">${JSON.stringify(result.event)}</span></div>
+                        `;
+                    } else {
+                        resultItem.className = 'result-item result-warning';
+                        resultItem.innerHTML = `
+                            <div class="relay-url">⚠️ ${relayUrl}</div>
+                            <div class="relay-response">Event not found on this relay</div>
+                        `;
+                    }
+                } catch (error) {
+                    resultItem.className = 'result-item result-error';
+                    resultItem.innerHTML = `
+                        <div class="relay-url">❌ ${relayUrl}</div>
+                        <div class="relay-response">Error: ${error.message}</div>
+                    `;
+                }
+            }
+
+            // Analyze differences in found events
+            const foundEvents = [];
+            resultsDiv.querySelectorAll('.result-success').forEach(item => {
+                const relayUrl = item.dataset.relayUrl;
+                const eventData = item.dataset.eventData;
+                if (relayUrl && eventData) {
+                    try {
+                        foundEvents.push({
+                            relay: relayUrl,
+                            event: JSON.parse(eventData)
+                        });
+                    } catch (e) {
+                        // Ignore parsing errors
+                    }
+                }
+            });
+
+            if (foundEvents.length > 1) {
+                const eventDiffAnalysis = analyzeEventDifferences(foundEvents);
+                if (eventDiffAnalysis && Object.keys(eventDiffAnalysis.differences).length > 0) {
+                    const summaryDiv = document.createElement('div');
+                    summaryDiv.innerHTML = createEventDifferenceSummary(eventDiffAnalysis.differences);
+                    resultsDiv.insertBefore(summaryDiv, resultsDiv.firstChild);
+                    
+                    // Update event highlighting
+                    updateEventHighlighting(resultsDiv, eventDiffAnalysis);
+                }
+            }
+
+            const foundCount = resultsDiv.querySelectorAll('.result-success').length;
+            const totalCount = selectedRelays.length;
+            
+            if (foundCount > 0) {
+                showNaddrStatus(`🎉 Found event on ${foundCount}/${totalCount} relays!`, 'success');
+            } else {
+                showNaddrStatus(`❌ Event not found on any of the ${totalCount} relays`, 'error');
+            }
+        }
+
+        async function queryEventByNaddr(relayUrl, naddrData) {
+            return new Promise((resolve, reject) => {
+                const ws = new WebSocket(relayUrl);
+                let timeoutId;
+                let subscriptionId = 'naddr_' + Math.random().toString(36).substring(7);
+
+                // Set a timeout for the query
+                timeoutId = setTimeout(() => {
+                    ws.close();
+                    reject(new Error('Query timeout'));
+                }, 15000);
+
+                let eventFound = false;
+                let foundEvent = null;
+
+                ws.onopen = () => {
+                    // Build filter for addressable event
+                    const filter = {
+                        kinds: [naddrData.kind],
+                        authors: [naddrData.pubkey],
+                        '#d': [naddrData.identifier]
+                    };
+
+                    const reqMessage = JSON.stringify(['REQ', subscriptionId, filter]);
+                    ws.send(reqMessage);
+                };
+
+                ws.onmessage = (msg) => {
+                    try {
+                        const response = JSON.parse(msg.data);
+                        
+                        if (response[0] === 'EVENT' && response[1] === subscriptionId) {
+                            // Found the event
+                            eventFound = true;
+                            foundEvent = response[2];
+                        } else if (response[0] === 'EOSE' && response[1] === subscriptionId) {
+                            // End of stored events - close connection and resolve
+                            clearTimeout(timeoutId);
+                            ws.close();
+                            resolve({
+                                found: eventFound,
+                                event: foundEvent
+                            });
+                        } else if (response[0] === 'NOTICE') {
+                            clearTimeout(timeoutId);
+                            ws.close();
+                            reject(new Error(`Query NOTICE: ${response[1]}`));
+                        }
+                    } catch (error) {
+                        clearTimeout(timeoutId);
+                        ws.close();
+                        reject(new Error(`Invalid query response: ${error.message}`));
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    clearTimeout(timeoutId);
+                    reject(new Error('Query connection failed'));
+                };
+
+                ws.onclose = (event) => {
+                    clearTimeout(timeoutId);
+                    if (event.code !== 1000 && !eventFound) {
+                        reject(new Error(`Query connection closed unexpectedly (code: ${event.code})`));
+                    }
+                };
+            });
+        }
+
+        function showNaddrStatus(message, type) {
+            const statusDiv = document.getElementById('naddrStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        }
+
+        async function broadcastEventToOtherRelays(sourceRelay, buttonElement) {
+            // Get the event data from the result item
+            const resultItem = buttonElement.closest('.result-item');
+            const eventData = JSON.parse(resultItem.dataset.eventData);
+            const sourceRelayUrl = resultItem.dataset.relayUrl;
+            
+            // Get all selected relays except the source relay
+            const allSelectedRelays = Array.from(document.querySelectorAll('#relayList input[type="checkbox"]:checked'))
+                .map(cb => cb.value);
+            const targetRelays = allSelectedRelays.filter(relay => relay !== sourceRelayUrl);
+            
+            if (targetRelays.length === 0) {
+                alert('No other relays selected to broadcast to.');
+                return;
+            }
+
+            // Update button state
+            buttonElement.disabled = true;
+            buttonElement.textContent = '📡 Broadcasting...';
+            
+            const progressSpan = document.getElementById(buttonElement.id + '-progress');
+            progressSpan.style.display = 'inline';
+            progressSpan.textContent = `Broadcasting to ${targetRelays.length} relays...`;
+
+            // Create a container for the results
+            const resultsContainer = document.createElement('div');
+            resultsContainer.className = 'verification-section';
+            resultsContainer.innerHTML = `
+                <div class="verification-status" style="margin-bottom: 10px;">
+                    <strong>Broadcast Results from ${sourceRelay}:</strong>
+                </div>
+            `;
+
+            // Use the existing broadcast logic by calling broadcastToSelectedRelays
+            try {
+                const results = await broadcastToSelectedRelays(eventData, targetRelays, resultsContainer, progressSpan);
+                
+                // Update progress with final status
+                const successCount = results.filter(r => r.success).length;
+                const totalCount = results.length;
+                
+                if (successCount === totalCount) {
+                    progressSpan.textContent = `✅ Successfully broadcast to all ${totalCount} relays`;
+                    progressSpan.style.color = '#28a745';
+                } else if (successCount > 0) {
+                    progressSpan.textContent = `⚠️ Broadcast to ${successCount}/${totalCount} relays`;
+                    progressSpan.style.color = '#ffc107';
+                } else {
+                    progressSpan.textContent = `❌ Failed to broadcast to any relays`;
+                    progressSpan.style.color = '#dc3545';
+                }
+
+            } catch (error) {
+                progressSpan.textContent = `❌ Broadcast failed: ${error.message}`;
+                progressSpan.style.color = '#dc3545';
+            }
+
+            resultItem.appendChild(resultsContainer);
+
+            // Reset button state
+            buttonElement.disabled = false;
+            buttonElement.textContent = '📡 Broadcast to Other Relays';
+        }
+
+        // JSON difference analysis and highlighting
+        function analyzeResponseDifferences(allResults) {
+            // Collect all successful responses
+            const responses = allResults
+                .filter(result => result.response)
+                .map(result => ({
+                    relay: result.relay,
+                    response: result.response
+                }));
+
+            if (responses.length < 2) return null;
+
+            // Analyze differences in response fields
+            const fieldAnalysis = {};
+            
+            responses.forEach(({relay, response}) => {
+                response.forEach((value, index) => {
+                    const fieldKey = `field_${index}`;
+                    if (!fieldAnalysis[fieldKey]) {
+                        fieldAnalysis[fieldKey] = new Map();
+                    }
+                    
+                    const valueStr = JSON.stringify(value);
+                    if (!fieldAnalysis[fieldKey].has(valueStr)) {
+                        fieldAnalysis[fieldKey].set(valueStr, []);
+                    }
+                    fieldAnalysis[fieldKey].get(valueStr).push(relay);
+                });
+            });
+
+            // Find fields with differences
+            const differences = {};
+            Object.keys(fieldAnalysis).forEach(fieldKey => {
+                const values = fieldAnalysis[fieldKey];
+                if (values.size > 1) {
+                    differences[fieldKey] = values;
+                }
+            });
+
+            return {
+                totalResponses: responses.length,
+                differences: differences,
+                responses: responses
+            };
+        }
+
+        function highlightJsonDifferences(jsonArray, differences) {
+            if (!differences || Object.keys(differences).length === 0) {
+                return JSON.stringify(jsonArray);
+            }
+
+            // Create a value-to-color mapping for consistent colors
+            const valueColorMap = new Map();
+            let colorIndex = 0;
+
+            // Assign colors to different values across all fields
+            Object.keys(differences).forEach(fieldKey => {
+                const values = differences[fieldKey];
+                Array.from(values.keys()).forEach(value => {
+                    if (!valueColorMap.has(value)) {
+                        valueColorMap.set(value, colorIndex % 6);
+                        colorIndex++;
+                    }
+                });
+            });
+
+            let result = '[';
+            
+            jsonArray.forEach((value, index) => {
+                if (index > 0) result += ', ';
+                
+                const fieldKey = `field_${index}`;
+                const valueStr = JSON.stringify(value);
+                
+                if (differences[fieldKey]) {
+                    const valuesMap = differences[fieldKey];
+                    const relayCount = valuesMap.get(valueStr).length;
+                    const totalRelays = Array.from(valuesMap.values()).reduce((sum, arr) => sum + arr.length, 0);
+                    
+                    if (relayCount === 1) {
+                        // This value is unique to this relay - use red
+                        result += `<span class="json-diff-unique" title="Unique to this relay (${relayCount}/${totalRelays})">${valueStr}</span>`;
+                    } else if (relayCount === totalRelays) {
+                        // All relays have this value - use gray
+                        result += `<span class="json-diff-same" title="All relays have this value">${valueStr}</span>`;
+                    } else {
+                        // Some relays have this value - use color coding
+                        const colorClass = `json-diff-value-${valueColorMap.get(valueStr)}`;
+                        result += `<span class="${colorClass}" title="${relayCount}/${totalRelays} relays have this value">${valueStr}</span>`;
+                    }
+                } else {
+                    result += valueStr;
+                }
+            });
+            
+            result += ']';
+            return result;
+        }
+
+        function createDifferenceSummary(differences) {
+            if (!differences || Object.keys(differences).length === 0) {
+                return '<div class="diff-summary"><h4>📊 Response Analysis</h4>All relay responses are identical.</div>';
+            }
+
+            let summary = '<div class="diff-summary"><h4>📊 Response Analysis - Differences Found</h4>';
+            
+            Object.keys(differences).forEach(fieldKey => {
+                const fieldIndex = parseInt(fieldKey.split('_')[1]);
+                const fieldName = getFieldName(fieldIndex);
+                const values = differences[fieldKey];
+                
+                summary += `<div><strong>${fieldName}:</strong><br>`;
+                
+                values.forEach((relays, value) => {
+                    const relayCount = relays.length;
+                    const relayList = relays.slice(0, 3).map(r => r.split('//')[1]?.split('/')[0] || r).join(', ');
+                    const moreText = relays.length > 3 ? ` (+${relays.length - 3} more)` : '';
+                    
+                    summary += `&nbsp;&nbsp;• ${value} <span style="color: #6c757d;">(${relayCount} relays: ${relayList}${moreText})</span><br>`;
+                });
+                
+                summary += '</div>';
+            });
+            
+            summary += '</div>';
+            return summary;
+        }
+
+        function getFieldName(index) {
+            const fieldNames = ['Message Type', 'Event ID', 'Success', 'Message'];
+            return fieldNames[index] || `Field ${index}`;
+        }
+
+        function updateResponseHighlighting(resultsDiv, diffAnalysis) {
+            const resultItems = resultsDiv.querySelectorAll('.result-item');
+            
+            resultItems.forEach(item => {
+                const responseContent = item.querySelector('.response-content');
+                if (!responseContent) return;
+                
+                const relayUrl = item.dataset.relayUrl;
+                if (!relayUrl) return;
+                
+                // Find this relay's response in the analysis
+                const relayResponse = diffAnalysis.responses.find(r => r.relay === relayUrl);
+                if (!relayResponse) return;
+                
+                // Update the response content with highlighting
+                const highlightedResponse = highlightJsonDifferences(
+                    relayResponse.response, 
+                    diffAnalysis.differences
+                );
+                
+                responseContent.innerHTML = highlightedResponse;
+            });
+        }
+
+        function analyzeEventDifferences(foundEvents) {
+            if (foundEvents.length < 2) return null;
+
+            const fieldAnalysis = {};
+            const eventFields = ['id', 'pubkey', 'created_at', 'kind', 'tags', 'content', 'sig'];
+            
+            foundEvents.forEach(({relay, event}) => {
+                eventFields.forEach(field => {
+                    if (!fieldAnalysis[field]) {
+                        fieldAnalysis[field] = new Map();
+                    }
+                    
+                    const value = event[field];
+                    
+                    // Special handling for tags - analyze individual tags and tag values
+                    if (field === 'tags' && Array.isArray(value)) {
+                        // Analyze tags array as a whole
+                        const tagsStr = JSON.stringify(value);
+                        if (!fieldAnalysis[field].has(tagsStr)) {
+                            fieldAnalysis[field].set(tagsStr, []);
+                        }
+                        fieldAnalysis[field].get(tagsStr).push(relay);
+                        
+                        // Also analyze individual tags and their values
+                        value.forEach((tag, tagIndex) => {
+                            if (Array.isArray(tag)) {
+                                // Analyze the entire tag
+                                const tagField = `tags[${tagIndex}]`;
+                                if (!fieldAnalysis[tagField]) {
+                                    fieldAnalysis[tagField] = new Map();
+                                }
+                                
+                                const tagStr = JSON.stringify(tag);
+                                if (!fieldAnalysis[tagField].has(tagStr)) {
+                                    fieldAnalysis[tagField].set(tagStr, []);
+                                }
+                                fieldAnalysis[tagField].get(tagStr).push(relay);
+                                
+                                // Analyze individual tag values
+                                tag.forEach((tagValue, valueIndex) => {
+                                    const tagValueField = `tags[${tagIndex}][${valueIndex}]`;
+                                    if (!fieldAnalysis[tagValueField]) {
+                                        fieldAnalysis[tagValueField] = new Map();
+                                    }
+                                    
+                                    const tagValueStr = JSON.stringify(tagValue);
+                                    if (!fieldAnalysis[tagValueField].has(tagValueStr)) {
+                                        fieldAnalysis[tagValueField].set(tagValueStr, []);
+                                    }
+                                    fieldAnalysis[tagValueField].get(tagValueStr).push(relay);
+                                });
+                            }
+                        });
+                    } else {
+                        const valueStr = JSON.stringify(value);
+                        if (!fieldAnalysis[field].has(valueStr)) {
+                            fieldAnalysis[field].set(valueStr, []);
+                        }
+                        fieldAnalysis[field].get(valueStr).push(relay);
+                    }
+                });
+            });
+
+            // Find fields with differences
+            const differences = {};
+            Object.keys(fieldAnalysis).forEach(field => {
+                const values = fieldAnalysis[field];
+                if (values.size > 1) {
+                    differences[field] = values;
+                }
+            });
+
+            return {
+                totalEvents: foundEvents.length,
+                differences: differences,
+                events: foundEvents
+            };
+        }
+
+        function createEventDifferenceSummary(differences) {
+            let summary = '<div class="diff-summary"><h4>📊 Event Analysis - Differences Found</h4>';
+            
+            Object.keys(differences).forEach(field => {
+                const values = differences[field];
+                
+                summary += `<div><strong>${field}:</strong><br>`;
+                
+                values.forEach((relays, value) => {
+                    const relayCount = relays.length;
+                    const relayList = relays.slice(0, 3).map(r => r.split('//')[1]?.split('/')[0] || r).join(', ');
+                    const moreText = relays.length > 3 ? ` (+${relays.length - 3} more)` : '';
+                    
+                    const displayValue = value.length > 50 ? value.substring(0, 50) + '...' : value;
+                    summary += `&nbsp;&nbsp;• ${displayValue} <span style="color: #6c757d;">(${relayCount} relays: ${relayList}${moreText})</span><br>`;
+                });
+                
+                summary += '</div>';
+            });
+            
+            summary += '</div>';
+            return summary;
+        }
+
+        function updateEventHighlighting(resultsDiv, diffAnalysis) {
+            const resultItems = resultsDiv.querySelectorAll('.result-item');
+            
+            resultItems.forEach(item => {
+                const eventContent = item.querySelector('.event-content');
+                if (!eventContent) return;
+                
+                const relayUrl = item.dataset.relayUrl;
+                if (!relayUrl) return;
+                
+                // Find this relay's event in the analysis
+                const relayEvent = diffAnalysis.events.find(e => e.relay === relayUrl);
+                if (!relayEvent) return;
+                
+                // Update the event content with highlighting
+                const highlightedEvent = highlightEventDifferences(
+                    relayEvent.event, 
+                    diffAnalysis.differences
+                );
+                
+                eventContent.innerHTML = highlightedEvent;
+            });
+        }
+
+        function highlightEventDifferences(event, differences) {
+            if (!differences || Object.keys(differences).length === 0) {
+                return JSON.stringify(event, null, 2);
+            }
+
+            // Create a value-to-color mapping for consistent colors
+            const valueColorMap = new Map();
+            let colorIndex = 0;
+
+            // Assign colors to different values
+            Object.keys(differences).forEach(field => {
+                const values = differences[field];
+                Array.from(values.keys()).forEach(value => {
+                    if (!valueColorMap.has(value)) {
+                        valueColorMap.set(value, colorIndex % 6);
+                        colorIndex++;
+                    }
+                });
+            });
+
+            // Create a custom JSON stringifier that adds highlighting
+            function highlightValue(key, value, path = []) {
+                const currentPath = path.concat(key);
+                let result = JSON.stringify(value);
+                
+                // Check if this value should be highlighted
+                Object.keys(differences).forEach(field => {
+                    const fieldValues = differences[field];
+                    const valueStr = JSON.stringify(value);
+                    
+                    if (fieldValues.has(valueStr)) {
+                        let shouldHighlight = false;
+                        
+                        if (field.startsWith('tags[') && field.includes('][')) {
+                            // Individual tag value (e.g., tags[0][1])
+                            const matches = field.match(/tags\[(\d+)\]\[(\d+)\]/);
+                            if (matches) {
+                                const tagIndex = parseInt(matches[1]);
+                                const valueIndex = parseInt(matches[2]);
+                                if (currentPath.length === 3 && 
+                                    currentPath[0] === 'tags' && 
+                                    currentPath[1] === tagIndex && 
+                                    currentPath[2] === valueIndex) {
+                                    shouldHighlight = true;
+                                }
+                            }
+                        } else if (field.startsWith('tags[')) {
+                            // Entire tag array (e.g., tags[0])
+                            const tagIndex = parseInt(field.match(/tags\[(\d+)\]/)[1]);
+                            if (currentPath.length === 2 && 
+                                currentPath[0] === 'tags' && 
+                                currentPath[1] === tagIndex) {
+                                shouldHighlight = true;
+                            }
+                        } else if (field === currentPath[0] && currentPath.length === 1) {
+                            // Regular field
+                            shouldHighlight = true;
+                        }
+                        
+                        if (shouldHighlight) {
+                            const colorClass = `json-diff-value-${valueColorMap.get(valueStr)}`;
+                            const relayCount = fieldValues.get(valueStr).length;
+                            const totalRelays = Array.from(fieldValues.values()).reduce((sum, arr) => sum + arr.length, 0);
+                            let title;
+                            if (field.includes('][')) {
+                                const matches = field.match(/tags\[(\d+)\]\[(\d+)\]/);
+                                title = `Tag[${matches[1]}][${matches[2]}]: ${relayCount}/${totalRelays} relays`;
+                            } else if (field.startsWith('tags[')) {
+                                const tagIndex = field.match(/tags\[(\d+)\]/)[1];
+                                title = `Tag[${tagIndex}]: ${relayCount}/${totalRelays} relays`;
+                            } else {
+                                title = `${field}: ${relayCount}/${totalRelays} relays`;
+                            }
+                            
+                            result = `<span class="${colorClass}" title="${title}">${result}</span>`;
+                        }
+                    }
+                });
+                
+                return result;
+            }
+
+            // Parse the event and reconstruct with highlighting
+            function processObject(obj, path = []) {
+                if (Array.isArray(obj)) {
+                    const items = obj.map((item, index) => processObject(item, path.concat(index)));
+                    return '[' + items.join(', ') + ']';
+                } else if (obj && typeof obj === 'object') {
+                    const pairs = Object.keys(obj).map(key => {
+                        const value = obj[key];
+                        const processedValue = processObject(value, path.concat(key));
+                        return `"${key}": ${processedValue}`;
+                    });
+                    return '{' + pairs.join(', ') + '}';
+                } else {
+                    return highlightValue(path[path.length - 1], obj, path.slice(0, -1));
+                }
+            }
+
+            // Format with proper indentation
+            const highlighted = processObject(event);
+            
+            // Add proper JSON formatting (spacing and newlines)
+            return highlighted
+                .replace(/,/g, ',\n  ')
+                .replace(/{/g, '{\n  ')
+                .replace(/}/g, '\n}')
+                .replace(/\[/g, '[\n    ')
+                .replace(/\]/g, '\n  ]');
+        }
+
+        async function broadcastToSelectedRelays(event, selectedRelays, resultsContainer, progressSpan = null) {
+            const shouldVerify = document.getElementById('verifyAfterBroadcast').checked;
+            const results = [];
+
+            // Broadcast to each relay
+            for (const relayUrl of selectedRelays) {
+                const resultItem = document.createElement('div');
+                resultsContainer.appendChild(resultItem);
+                
+                try {
+                    const result = await broadcastToRelay(relayUrl, event);
+                    results.push({ relay: relayUrl, success: result.success, response: result.response });
+                    
+                    resultItem.className = `result-item ${result.success ? 'result-success' : 'result-warning'}`;
+                    
+                    // Smaller styling for embedded results
+                    if (progressSpan) {
+                        resultItem.style.fontSize = '12px';
+                        resultItem.style.padding = '8px';
+                        resultItem.style.marginBottom = '5px';
+                    }
+                    
+                    // Store for later difference analysis
+                    resultItem.dataset.relayUrl = relayUrl;
+                    resultItem.dataset.response = JSON.stringify(result.response);
+                    
+                    resultItem.innerHTML = `
+                        <div class="relay-url">${result.success ? '✅' : '⚠️'} ${relayUrl}</div>
+                        <div class="relay-response json-diff">Response: <span class="response-content">${JSON.stringify(result.response)}</span></div>
+                    `;
+
+                    // Add verification if enabled and broadcast was successful
+                    if (shouldVerify && result.success) {
+                        const verificationDiv = document.createElement('div');
+                        verificationDiv.className = 'verification-section';
+                        verificationDiv.innerHTML = `
+                            <div class="verification-status verification-pending">🔍 Verifying event exists on relay...</div>
+                        `;
+                        resultItem.appendChild(verificationDiv);
+
+                        try {
+                            const verified = await verifyEventOnRelay(relayUrl, event.id);
+                            if (verified.found) {
+                                verificationDiv.innerHTML = `
+                                    <div class="verification-status verification-success">✅ Verification: Event found on relay</div>
+                                    <div class="relay-response">Fetched event: ${JSON.stringify(verified.event)}</div>
+                                `;
+                            } else {
+                                verificationDiv.innerHTML = `
+                                    <div class="verification-status verification-error">❌ Verification: Event NOT found on relay</div>
+                                    <div class="relay-response">The event was not retrievable despite successful broadcast</div>
+                                `;
+                            }
+                        } catch (verifyError) {
+                            verificationDiv.innerHTML = `
+                                <div class="verification-status verification-error">❌ Verification failed: ${verifyError.message}</div>
+                            `;
+                        }
+                    }
+                } catch (error) {
+                    results.push({ relay: relayUrl, success: false, error: error.message });
+                    
+                    resultItem.className = 'result-item result-error';
+                    
+                    // Smaller styling for embedded results
+                    if (progressSpan) {
+                        resultItem.style.fontSize = '12px';
+                        resultItem.style.padding = '8px';
+                        resultItem.style.marginBottom = '5px';
+                    }
+                    
+                    resultItem.innerHTML = `
+                        <div class="relay-url">❌ ${relayUrl}</div>
+                        <div class="relay-response">Error: ${error.message}</div>
+                    `;
+                }
+                
+                // Update progress if provided
+                if (progressSpan) {
+                    const completed = results.length;
+                    progressSpan.textContent = `${completed}/${selectedRelays.length} completed`;
+                }
+            }
+
+            // Analyze response differences and update highlighting
+            const diffAnalysis = analyzeResponseDifferences(results);
+            
+            if (diffAnalysis) {
+                // Update response highlighting
+                updateResponseHighlighting(resultsContainer, diffAnalysis);
+                
+                // Add difference summary if there are differences (only for main broadcasts)
+                if (!progressSpan && Object.keys(diffAnalysis.differences).length > 0) {
+                    const summaryDiv = document.createElement('div');
+                    summaryDiv.innerHTML = createDifferenceSummary(diffAnalysis.differences);
+                    resultsContainer.insertBefore(summaryDiv, resultsContainer.firstChild);
+                } else if (!progressSpan) {
+                    const summaryDiv = document.createElement('div');
+                    summaryDiv.innerHTML = '<div class="diff-summary"><h4>📊 Response Analysis</h4>All relay responses are identical.</div>';
+                    resultsContainer.insertBefore(summaryDiv, resultsContainer.firstChild);
+                }
+            }
+
+            return results;
+        }
+
+        async function broadcastEvent() {
+            const eventInput = document.getElementById('eventInput');
+            const eventText = eventInput.value.trim();
+
+            if (!eventText) {
+                showStatus('Please enter an event to broadcast', 'error');
+                return;
+            }
+
+            let event;
+            try {
+                event = JSON.parse(eventText);
+            } catch (error) {
+                showStatus(`Invalid JSON: ${error.message}`, 'error');
+                return;
+            }
+
+            // Get selected relays
+            const selectedRelays = Array.from(document.querySelectorAll('#relayList input[type="checkbox"]:checked'))
+                .map(cb => cb.value);
+
+            if (selectedRelays.length === 0) {
+                showStatus('Please select at least one relay', 'error');
+                return;
+            }
+
+            // Update UI
+            const broadcastBtn = document.getElementById('broadcastBtn');
+            broadcastBtn.disabled = true;
+            broadcastBtn.innerHTML = '<span class="loading"></span>Broadcasting...';
+            
+            showStatus(`Broadcasting to ${selectedRelays.length} relays...`, 'info');
+            
+            const resultsDiv = document.getElementById('broadcastResults');
+            resultsDiv.innerHTML = '';
+
+            // Use the shared broadcast function
+            const results = await broadcastToSelectedRelays(event, selectedRelays, resultsDiv);
+
+            // Summary
+            const successCount = results.filter(r => r.success).length;
+            const totalCount = results.length;
+            
+            if (successCount === totalCount) {
+                showStatus(`🎉 Successfully broadcast to all ${totalCount} relays!`, 'success');
+            } else if (successCount > 0) {
+                showStatus(`⚠️ Broadcast to ${successCount}/${totalCount} relays. Check results below.`, 'error');
+            } else {
+                showStatus(`❌ Failed to broadcast to any relays. Check results below.`, 'error');
+            }
+
+            // Reset button
+            broadcastBtn.disabled = false;
+            broadcastBtn.innerHTML = '📡 Broadcast to Selected Relays';
+        }
+
+        async function verifyEventOnRelay(relayUrl, eventId) {
+            return new Promise((resolve, reject) => {
+                const ws = new WebSocket(relayUrl);
+                let timeoutId;
+                let subscriptionId = 'verify_' + Math.random().toString(36).substring(7);
+
+                // Set a timeout for the verification
+                timeoutId = setTimeout(() => {
+                    ws.close();
+                    reject(new Error('Verification timeout'));
+                }, 15000);
+
+                let eventFound = false;
+                let foundEvent = null;
+
+                ws.onopen = () => {
+                    // Send REQ to fetch the specific event
+                    const reqMessage = JSON.stringify([
+                        'REQ', 
+                        subscriptionId, 
+                        { 'ids': [eventId] }
+                    ]);
+                    ws.send(reqMessage);
+                };
+
+                ws.onmessage = (msg) => {
+                    try {
+                        const response = JSON.parse(msg.data);
+                        
+                        if (response[0] === 'EVENT' && response[1] === subscriptionId) {
+                            // Found the event
+                            eventFound = true;
+                            foundEvent = response[2];
+                        } else if (response[0] === 'EOSE' && response[1] === subscriptionId) {
+                            // End of stored events - close connection and resolve
+                            clearTimeout(timeoutId);
+                            ws.close();
+                            resolve({
+                                found: eventFound,
+                                event: foundEvent
+                            });
+                        } else if (response[0] === 'NOTICE') {
+                            clearTimeout(timeoutId);
+                            ws.close();
+                            reject(new Error(`Verification NOTICE: ${response[1]}`));
+                        }
+                    } catch (error) {
+                        clearTimeout(timeoutId);
+                        ws.close();
+                        reject(new Error(`Invalid verification response: ${error.message}`));
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    clearTimeout(timeoutId);
+                    reject(new Error('Verification connection failed'));
+                };
+
+                ws.onclose = (event) => {
+                    clearTimeout(timeoutId);
+                    if (event.code !== 1000 && !eventFound) {
+                        reject(new Error(`Verification connection closed unexpectedly (code: ${event.code})`));
+                    }
+                };
+            });
+        }
+
+        async function broadcastToRelay(relayUrl, event) {
+            return new Promise((resolve, reject) => {
+                const ws = new WebSocket(relayUrl);
+                let timeoutId;
+
+                // Set a timeout for the connection
+                timeoutId = setTimeout(() => {
+                    ws.close();
+                    reject(new Error('Connection timeout'));
+                }, 10000);
+
+                ws.onopen = () => {
+                    // Send the event
+                    const message = JSON.stringify(['EVENT', event]);
+                    ws.send(message);
+                };
+
+                ws.onmessage = (msg) => {
+                    clearTimeout(timeoutId);
+                    try {
+                        const response = JSON.parse(msg.data);
+                        if (response[0] === 'OK') {
+                            const eventId = response[1];
+                            const success = response[2];
+                            const message = response[3] || '';
+                            
+                            ws.close();
+                            
+                            // Return the complete response with success status
+                            resolve({
+                                success: success,
+                                response: response
+                            });
+                        } else if (response[0] === 'NOTICE') {
+                            ws.close();
+                            // Treat NOTICE as an error but include the response
+                            reject(new Error(`NOTICE: ${response[1]} | Raw response: ${JSON.stringify(response)}`));
+                        } else {
+                            // Handle other message types
+                            ws.close();
+                            reject(new Error(`Unexpected response type: ${JSON.stringify(response)}`));
+                        }
+                    } catch (error) {
+                        ws.close();
+                        reject(new Error(`Invalid response format: ${error.message} | Raw data: ${msg.data}`));
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    clearTimeout(timeoutId);
+                    reject(new Error('WebSocket connection failed'));
+                };
+
+                ws.onclose = (event) => {
+                    clearTimeout(timeoutId);
+                    if (event.code !== 1000) {
+                        reject(new Error(`Connection closed unexpectedly (code: ${event.code})`));
+                    }
+                };
+            });
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        }
+
+        function saveSettings() {
+            localStorage.setItem('nostr-broadcaster-custom-relays', JSON.stringify(customRelays));
+        }
+
+        function loadSavedSettings() {
+            const saved = localStorage.getItem('nostr-broadcaster-custom-relays');
+            if (saved) {
+                try {
+                    const loadedRelays = JSON.parse(saved);
+                    // Normalize loaded relays to clean up any with trailing slashes or whitespace
+                    customRelays = loadedRelays.map(normalizeRelayUrl);
+                    // Save the normalized version back to localStorage
+                    saveSettings();
+                } catch (error) {
+                    console.error('Error loading saved settings:', error);
+                }
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

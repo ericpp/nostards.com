@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nostr Event to naddr Encoder</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.5em;
+            font-weight: bold;
+        }
+        
+        .input-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        textarea, input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+        
+        textarea:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        textarea {
+            height: 150px;
+            resize: vertical;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .result {
+            margin-top: 25px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9ff, #e8f0ff);
+            border-radius: 12px;
+            border: 2px solid #e0e8ff;
+            word-break: break-all;
+            font-family: 'Courier New', monospace;
+            display: none;
+        }
+        
+        .result.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .error {
+            color: #d32f2f;
+            background: linear-gradient(135deg, #ffebee, #fce4ec);
+            border-color: #ffcdd2;
+        }
+        
+        .success {
+            color: #2e7d32;
+            background: linear-gradient(135deg, #e8f5e8, #f1f8e9);
+            border-color: #c8e6c9;
+        }
+        
+        .copy-btn {
+            margin-top: 10px;
+            background: linear-gradient(135deg, #4caf50, #45a049);
+            width: auto;
+            display: inline-block;
+        }
+        
+        .info {
+            background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+            border: 2px solid #bbdefb;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            color: #1565c0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 Nostr naddr Encoder</h1>
+        
+        <div class="info">
+            <strong>Instructions:</strong> Paste your Nostr JSON event below. The encoder supports:
+            <br>• Standard Nostr events with 'd' tag in tags array
+            <br>• Simplified format with direct "identifier" and "relays" properties
+            <br><br><strong>NIP-19 TLV Format:</strong>
+            <br>• Type 0: Special (identifier for naddr)
+            <br>• Type 1: Relay URLs (ASCII encoded, variable length)  
+            <br>• Type 2: Author pubkey (32 bytes)
+            <br>• Type 3: Kind (4 bytes, big-endian)
+        </div>
+        
+        <div class="input-group">
+            <label for="jsonEvent">Nostr JSON Event:</label>
+            <textarea id="jsonEvent" placeholder='{"id": "...", "kind": 30023, "pubkey": "...", "created_at": 1234567890, "content": "...", "tags": [["d", "example"]], "sig": "..."}'></textarea>
+        </div>
+        
+        <div class="input-group">
+            <label for="relays">Relays (optional, comma-separated):</label>
+            <input type="text" id="relays" placeholder="wss://relay1.com, wss://relay2.com">
+        </div>
+        
+        <button onclick="encodeNaddr()">🚀 Generate naddr</button>
+        
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        // Base32 encoding (Bech32 compatible)
+        const CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+        
+        function base32Encode(data) {
+            let result = '';
+            let bits = 0;
+            let value = 0;
+            
+            for (let i = 0; i < data.length; i++) {
+                value = (value << 8) | data[i];
+                bits += 8;
+                
+                while (bits >= 5) {
+                    result += CHARSET[(value >>> (bits - 5)) & 31];
+                    bits -= 5;
+                }
+            }
+            
+            if (bits > 0) {
+                result += CHARSET[(value << (5 - bits)) & 31];
+            }
+            
+            return result;
+        }
+        
+        function bech32Checksum(hrp, data) {
+            const hrpHigh = [];
+            const hrpLow = [];
+            for (let i = 0; i < hrp.length; i++) {
+                const c = hrp.charCodeAt(i);
+                hrpHigh.push(c >> 5);
+                hrpLow.push(c & 31);
+            }
+            
+            const values = [...hrpHigh, 0, ...hrpLow, ...data, 0, 0, 0, 0, 0, 0];
+            const GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+            let chk = 1;
+            
+            for (const value of values) {
+                const top = chk >> 25;
+                chk = (chk & 0x1ffffff) << 5 ^ value;
+                for (let i = 0; i < 5; i++) {
+                    chk ^= ((top >> i) & 1) ? GEN[i] : 0;
+                }
+            }
+            
+            chk ^= 1;
+            const result = [];
+            for (let i = 0; i < 6; i++) {
+                result.push((chk >> (5 * (5 - i))) & 31);
+            }
+            return result;
+        }
+        
+        function bech32Encode(hrp, data) {
+            const checksum = bech32Checksum(hrp, data);
+            return hrp + '1' + [...data, ...checksum].map(x => CHARSET[x]).join('');
+        }
+        
+        function convertBits(data, fromBits, toBits, pad = true) {
+            let acc = 0;
+            let bits = 0;
+            const ret = [];
+            const maxv = (1 << toBits) - 1;
+            
+            for (let value of data) {
+                if (value < 0 || (value >> fromBits) !== 0) {
+                    return null;
+                }
+                acc = (acc << fromBits) | value;
+                bits += fromBits;
+                while (bits >= toBits) {
+                    bits -= toBits;
+                    ret.push((acc >> bits) & maxv);
+                }
+            }
+            
+            if (pad) {
+                if (bits > 0) {
+                    ret.push((acc << (toBits - bits)) & maxv);
+                }
+            } else if (bits >= fromBits || ((acc << (toBits - bits)) & maxv)) {
+                return null;
+            }
+            
+            return ret;
+        }
+        
+        function hexToBytes(hex) {
+            const bytes = [];
+            for (let i = 0; i < hex.length; i += 2) {
+                bytes.push(parseInt(hex.substr(i, 2), 16));
+            }
+            return bytes;
+        }
+        
+        function encodeNaddr() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                const jsonInput = document.getElementById('jsonEvent').value.trim();
+                const relaysInput = document.getElementById('relays').value.trim();
+                
+                if (!jsonInput) {
+                    throw new Error('Please enter a Nostr JSON event');
+                }
+                
+                // Parse the JSON event
+                const event = JSON.parse(jsonInput);
+                
+                // Validate required fields
+                if (typeof event.kind !== 'number' || !event.pubkey) {
+                    throw new Error('Event must have "kind" (number) and "pubkey" fields');
+                }
+                
+                // Validate pubkey format
+                if (!/^[0-9a-fA-F]{64}$/.test(event.pubkey)) {
+                    throw new Error('pubkey must be a 64-character hex string');
+                }
+                
+                // Find identifier - check both direct property and 'd' tag
+                let identifier = '';
+                if (event.identifier) {
+                    // Direct identifier property
+                    identifier = event.identifier;
+                } else if (event.tags) {
+                    // Look for 'd' tag in tags array
+                    const dTag = event.tags.find(tag => Array.isArray(tag) && tag[0] === 'd');
+                    if (dTag && dTag[1]) {
+                        identifier = dTag[1];
+                    }
+                }
+                
+                // Prepare TLV data
+                let tlvData = [];
+                
+                // Add special (0) - identifier (d tag) for naddr
+                if (identifier) {
+                    let identifierBytes;
+                    
+                    if (identifier.length === 64 && /^[0-9a-fA-F]+$/.test(identifier)) {
+                        // Identifier is a 64-character hex string (32 bytes)
+                        identifierBytes = hexToBytes(identifier);
+                    } else {
+                        // Identifier is a string - encode as UTF-8
+                        identifierBytes = new TextEncoder().encode(identifier);
+                    }
+                    
+                    tlvData.push(0); // TLV type
+                    tlvData.push(identifierBytes.length); // length
+                    tlvData.push(...identifierBytes); // value
+                }
+
+// Add relays - check both form input and event property
+                let relayList = [];
+                
+                // First check if relays are provided in the separate input field
+                if (relaysInput) {
+                    relayList = relaysInput.split(',').map(r => r.trim()).filter(r => r);
+                }
+                
+                // Also check if relays are in the event object
+                if (event.relays && Array.isArray(event.relays)) {
+                    relayList = [...relayList, ...event.relays];
+                }
+                
+                // Remove duplicates
+                relayList = [...new Set(relayList)];
+
+                // Add relays (1) if present
+                for (const relay of relayList) {
+                    const relayBytes = new TextEncoder().encode(relay);
+                    tlvData.push(1); // TLV type
+                    tlvData.push(relayBytes.length); // length
+                    tlvData.push(...relayBytes); // value
+                }
+                
+                // Add author (2) - pubkey (32 bytes)
+                const pubkeyBytes = hexToBytes(event.pubkey);
+                tlvData.push(2); // TLV type
+                tlvData.push(32); // length
+                tlvData.push(...pubkeyBytes); // value
+                
+                // Add kind (3) - 32-bit unsigned integer, big-endian (4 bytes)
+                const kindValue = event.kind;
+                const kindBytes = [
+                    (kindValue >> 24) & 0xff,
+                    (kindValue >> 16) & 0xff,
+                    (kindValue >> 8) & 0xff,
+                    kindValue & 0xff
+                ];
+                tlvData.push(3); // TLV type
+                tlvData.push(4); // length - must be 4
+                tlvData.push(...kindBytes); // value
+                
+                // Convert to 5-bit groups for bech32
+                const converted = convertBits(tlvData, 8, 5, true);
+                if (!converted) {
+                    throw new Error('Failed to convert data for encoding');
+                }
+                
+                // Encode as bech32
+                const naddr = bech32Encode('naddr', converted);
+                
+                // Display detailed breakdown for debugging
+                resultDiv.className = 'result success show';
+                resultDiv.innerHTML = `
+                    <strong>Generated naddr:</strong><br>
+                    ${naddr}
+                    <br><br>
+                    <details>
+                        <summary><strong>Debug Info</strong></summary>
+                        <div style="margin-top: 10px; font-size: 12px;">
+                            <strong>Extracted Data:</strong><br>
+                            • Kind: ${event.kind}<br>
+                            • Pubkey: ${event.pubkey}<br>
+                            • Identifier: ${identifier || '(none)'}<br>
+                            • Relays: ${relayList.length > 0 ? relayList.join(', ') : '(none)'}<br><br>
+                            <strong>TLV Data Length:</strong> ${tlvData.length} bytes<br>
+                            <strong>Converted Data Length:</strong> ${converted.length} groups
+                        </div>
+                    </details>
+                    <br>
+                    <button class="copy-btn" onclick="copyToClipboard('${naddr}')">📋 Copy to Clipboard</button>
+                `;
+                
+            } catch (error) {
+                resultDiv.className = 'result error show';
+                resultDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
+            }
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('naddr copied to clipboard!');
+            }).catch(() => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('naddr copied to clipboard!');
+            });
+        }
+    </script>
+</body>
+</html>
