@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nostr Zap Sender</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        @media (min-width: 1200px) {
+            .container {
+                max-width: 1000px;
+            }
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .zap-icon {
+            font-size: 3rem;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        @media (min-width: 768px) {
+            .form-row {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+            }
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .payment-container, .form-container, .note-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin: 20px 0;
+        }
+
+        .payment-container {
+            display: none;
+        }
+
+        .invoice-details, .json-display {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .json-display {
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .payment-options {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .webln-status, .status {
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .webln-status {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            font-size: 0.9rem;
+            color: #1565c0;
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        .status {
+            display: none;
+        }
+
+        .webln-status.error, .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .webln-status.success, .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .waiting-dialog {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            display: none;
+        }
+
+        .waiting-dialog h3 {
+            color: #856404;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .waiting-dialog p {
+            color: #856404;
+            margin-bottom: 15px;
+            font-size: 0.95rem;
+        }
+
+        .waiting-spinner {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 4px solid #ffeaa7;
+            border-radius: 50%;
+            border-top-color: #856404;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 15px;
+        }
+
+
+        .json-display h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 0.9rem;
+        }
+
+        .json-toggle {
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin: 5px 0;
+            transition: background-color 0.2s ease;
+        }
+
+        .json-toggle:hover {
+            background: #5a6268;
+        }
+
+        .json-section {
+            margin: 15px 0;
+        }
+
+        .form-container h3,
+        .payment-container h3,
+        .note-container h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.4rem;
+        }
+
+        .note-container p {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="zap-icon">⚡</div>
+        <h1>Nostr Podcast Zap Thing</h1>
+        
+        <div class="form-container">
+            <h3>Step 1: Create Zap Request</h3>
+            <form id="zapForm">
+            <div class="form-group">
+                <label for="lightningAddress">Recipient Lightning Address</label>
+                <input type="email" id="lightningAddress" placeholder="user@example.com" value="ericpp@getalby.com" required>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="amount">Amount (satoshis)</label>
+                    <input type="number" id="amount" placeholder="1000" value="100" min="1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="message">Message (optional)</label>
+                    <input type="text" id="message" placeholder="Great content!" maxlength="280" value="test">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="podcastGuid">Podcast Feed GUID</label>
+                <input type="text" id="podcastGuid" placeholder="4c2f0c93-1a38-5cff-80b1-6eb2831230a6" value="69c634ad-afea-5826-ad9a-8e1f06d6470b" required>
+            </div>
+
+            <div class="form-group">
+                <label for="feedLink">Podcast Link (optional)</label>
+                <input type="url" id="feedLink" placeholder="https://fountain.fm/show/JrDb3urY8o1C9UclELhV" value="https://www.doerfelverse.com/">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="itemGuid">Episode Item GUID</label>
+                    <input type="text" id="itemGuid" placeholder="303bf3d4-8d79-11f0-a9b3-d3883f9e0dd9" value="album-item-kurtisdrums" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="itemLink">Episode Link (optional)</label>
+                    <input type="url" id="itemLink" placeholder="https://fountain.fm/episode/ZOjVxTfpYeJRyvyw2VgP" value="https://www.doerfelverse.com/">
+                </div>
+            </div>
+
+                <button type="submit" class="btn" id="sendBtn">
+                    Create Zap Request ⚡
+                </button>
+            </form>
+        </div>
+
+        <div id="status" class="status"></div>
+        
+        <div class="payment-container" id="paymentContainer">
+            <h3>Step 2: Pay Invoice</h3>
+            <div id="weblnStatus" class="webln-status" style="display: none;"></div>
+            <div class="invoice-details" id="invoiceDetails"></div>
+            
+            <div class="payment-options">
+                <button type="button" class="btn" id="payWithWebln" onclick="payWithWebln()">Pay with WebLN ⚡</button>
+                <button type="button" class="btn-secondary" onclick="copyInvoice()">Copy Invoice</button>
+                <button type="button" class="btn-secondary" onclick="retryWebLN()" style="display: none;" id="retryWebln">Retry WebLN Detection</button>
+            </div>
+            
+            <div class="json-section">
+                <button type="button" class="json-toggle" onclick="toggleJsonDisplay('zapRequestJson')">Show Zap Request JSON</button>
+                <div class="json-display" id="zapRequestJson">
+                    <h4>Zap Request Event (kind 9734)</h4>
+                    <div id="zapRequestContent"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="note-container" id="noteContainer" style="display: none;">
+            <h3>Step 3: Post Note to Nostr</h3>
+            <p>Your zap has been confirmed! You can now post a note about it to Nostr.</p>
+            
+            <div class="payment-options">
+                <button type="button" class="btn" id="postNoteBtn" onclick="postZapNote()">Post Note to Nostr 📝</button>
+            </div>
+            
+            <!-- Collapsible JSON sections -->
+            <div class="json-section">
+                <button type="button" class="json-toggle" onclick="toggleJsonDisplay('zapReceiptJson')" style="display: none;" id="zapReceiptToggle">Show Zap Receipt JSON</button>
+                <div class="json-display" id="zapReceiptJson">
+                    <h4>Zap Receipt Event (kind 9735)</h4>
+                    <div id="zapReceiptContent"></div>
+                </div>
+            </div>
+            
+            <div class="json-section">
+                <button type="button" class="json-toggle" onclick="toggleJsonDisplay('noteJson')" style="display: none;" id="noteToggle">Show Note JSON</button>
+                <div class="json-display" id="noteJson">
+                    <h4>Note Event (kind 1)</h4>
+                    <div id="noteContent"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="waiting-dialog" id="waitingDialog">
+            <div class="waiting-spinner"></div>
+            <h3>Waiting for Zap Receipt</h3>
+            <p>Your invoice has been generated. Please complete the payment and we'll monitor Nostr for the zap receipt.</p>
+            <p><strong>We'll keep waiting until the zap receipt is found...</strong></p>
+        </div>
+    </div>
+
+    <!-- Include required libraries -->
+    <script src="https://unpkg.com/nostr-tools@1.17.0/lib/nostr.bundle.js"></script>
+    <script src="https://unpkg.com/webln@0.2.0/dist/webln.min.js"></script>
+    
+    <script>
+        // Nostr Zap Sender Implementation
+        class NostrZapSender {
+            constructor() {
+                this.relays = [
+                    // 'wss://relay.damus.io',
+                    'wss://nos.lol',
+                    'wss://relay.nostr.band',
+                    'wss://nostr-pub.wellorder.net'
+                ];
+                this.pool = new NostrTools.SimplePool();
+                this.webln = null;
+                this.weblnAvailable = false;
+                this.initWebLN();
+            }
+
+            // Initialize WebLN
+            async initWebLN() {
+                try {
+                    // Check multiple possible WebLN interfaces
+                    const weblnInterfaces = [
+                        window.webln,
+                        window.nostr?.webln,
+                        window.lightning,
+                        window.alby
+                    ];
+                    
+                    const weblnInterface = weblnInterfaces.find(w => w);
+                    
+                    if (weblnInterface) {
+                        // Try to enable if method exists
+                        if (weblnInterface.enable) {
+                            await weblnInterface.enable();
+                        }
+                        this.webln = weblnInterface;
+                        this.weblnAvailable = true;
+                        showWebLNStatus('WebLN detected! You can pay invoices directly.', 'success');
+                    } else {
+                        throw new Error('No WebLN interface found');
+                    }
+                } catch (error) {
+                    console.log('WebLN detection error:', error);
+                    showWebLNStatus('WebLN not available. Make sure Alby extension is enabled and refresh the page.', 'error');
+                }
+            }
+
+            // Resolve lightning address to LNURL
+            async resolveLightningAddress(lightningAddress) {
+                const [username, domain] = lightningAddress.split('@');
+                if (!username || !domain) {
+                    throw new Error('Invalid lightning address format');
+                }
+
+                const url = `https://${domain}/.well-known/lnurlp/${username}`;
+                
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        throw new Error(`Failed to resolve lightning address: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    if (data.status === 'ERROR') {
+                        throw new Error(data.reason || 'Lightning address resolution failed');
+                    }
+                    
+                    return data;
+                } catch (error) {
+                    throw new Error(`Failed to resolve lightning address: ${error.message}`);
+                }
+            }
+
+            // Create zap request event
+            createZapRequest(recipientPubkey, amount, message, lnurl, podcastGuid, itemGuid, feedLink, itemLink) {
+                const zapRequest = {
+                    kind: 9734,
+                    created_at: Math.floor(Date.now() / 1000),
+                    content: '',
+                    tags: [
+                        ['p', recipientPubkey],
+                        ['amount', (amount * 1000).toString()], // Convert sats to millisats
+                        ['relays', ...this.relays],
+                    ],
+                    pubkey: '', // Will be filled when we have a sender key
+                    id: '',
+                    sig: ''
+                };
+
+                // Generate a temporary key pair for the zap request
+                const privateKey = NostrTools.generatePrivateKey();
+                const publicKey = NostrTools.getPublicKey(privateKey);
+                
+                // Add P tag with sender pubkey
+                zapRequest.tags.push(['P', publicKey]);
+
+                // Add required podcast tags
+                zapRequest.tags.push(['k', 'podcast:item:guid']);
+                zapRequest.tags.push(['i', `podcast:item:guid:${itemGuid}`, itemLink]);
+                
+                zapRequest.tags.push(['k', 'podcast:guid']);
+                zapRequest.tags.push(['i', `podcast:guid:${podcastGuid}`, feedLink]);
+
+                // Set pubkey and sign the event
+                zapRequest.pubkey = publicKey;
+                zapRequest.id = NostrTools.getEventHash(zapRequest);
+                zapRequest.sig = NostrTools.signEvent(zapRequest, privateKey);
+
+                // Store the key pair globally for reuse in note posting
+                window.currentPrivateKey = privateKey;
+                window.currentPublicKey = publicKey;
+
+                return zapRequest;
+            }
+
+            // Get invoice for zap
+            async getZapInvoice(lnurlData, zapRequest, amount) {
+                const zapRequestEncoded = JSON.stringify(zapRequest);
+                
+                const params = new URLSearchParams({
+                    amount: (amount * 1000).toString(), // millisats
+                    nostr: zapRequestEncoded
+                });
+
+                const invoiceUrl = `${lnurlData.callback}?${params}`;
+                
+                try {
+                    const response = await fetch(invoiceUrl);
+                    if (!response.ok) {
+                        throw new Error(`Failed to get invoice: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    if (data.status === 'ERROR') {
+                        throw new Error(data.reason || 'Failed to generate invoice');
+                    }
+                    
+                    return data.pr; // Payment request (Lightning invoice)
+                } catch (error) {
+                    throw new Error(`Failed to get zap invoice: ${error.message}`);
+                }
+            }
+
+            // Pay invoice using WebLN
+            async payInvoice(invoice, recipientPubkey, amount, message, podcastGuid, itemGuid, feedLink, itemLink, zapRequest, lnurl) {
+                if (!this.weblnAvailable) {
+                    throw new Error('WebLN is not available. Please install a Lightning wallet extension.');
+                }
+
+                try {
+                    // Enable WebLN if not already enabled
+                    if (!this.webln.enabled && this.webln.enable) {
+                        await this.webln.enable();
+                    }
+
+                    // Send payment - try different method names
+                    const paymentMethods = ['sendPayment', 'pay', 'sendPaymentRequest'];
+                    const paymentMethod = paymentMethods.find(method => typeof this.webln[method] === 'function');
+                    
+                    if (!paymentMethod) {
+                        throw new Error('WebLN payment method not found');
+                    }
+                    
+                    const result = await this.webln[paymentMethod](invoice);
+                    
+                    if (result && (result.preimage || result.paymentHash)) {
+                        showWebLNStatus('Payment successful! Zap sent! 🎉', 'success');
+                        
+                        // Wait for zap receipt and show button to post note
+                        try {
+                            console.log('Calling waitForZapReceiptAndShowButton from WebLN payment success');
+                            await this.waitForZapReceiptAndShowButton(recipientPubkey, amount, message, podcastGuid, itemGuid, feedLink, itemLink, zapRequest, lnurl);
+                        } catch (receiptError) {
+                            console.warn('Failed to wait for zap receipt:', receiptError);
+                            // Still show success message even if receipt detection fails
+                        }
+                        
+                        return result;
+                    } else {
+                        throw new Error('Payment failed - no confirmation received');
+                    }
+                } catch (error) {
+                    if (error.message.includes('User rejected') || error.message.includes('cancelled')) {
+                        throw new Error('Payment was cancelled by user');
+                    } else if (error.message.includes('insufficient funds')) {
+                        throw new Error('Insufficient funds in your Lightning wallet');
+                    } else if (error.message.includes('not enabled')) {
+                        throw new Error('WebLN not enabled. Please enable it in your wallet.');
+                    } else {
+                        throw new Error(`Payment failed: ${error.message}`);
+                    }
+                }
+            }
+
+            // Wait for zap receipt to be published
+            async waitForZapReceipt(zapRequest, recipientPubkey, lnurl) {
+                const relays = this.relays.filter(relay => relay.startsWith('wss://'));
+                if (relays.length === 0) return null;
+
+                return new Promise((resolve, reject) => {
+                    console.log('Creating promise for waitForZapReceipt');
+                    // Use since parameter to only get events after the zap request was created
+                    // This filters out old zap receipts and only listens for new ones
+                    const since = zapRequest.created_at;
+                    
+                    // Listen for zap receipt events (kind 9735) from the recipient
+                    // Match by LNURL to link request with receipt
+                    const sub = this.pool.sub(relays, [{
+                        kinds: [9735],
+                        authors: [recipientPubkey], // From the recipient
+                        since: since // Only events created after our zap request
+                    }]);
+                    
+                    console.log('Listening for zap receipt events...', {
+                        kinds: [9735],
+                        authors: [recipientPubkey], // From the recipient
+                        since: since
+                    });
+                    sub.on('event', (event) => {
+                        console.log('Zap receipt event:', event);
+                        // Check if this zap receipt has the same bolt11 invoice as our zap request
+                        const bolt11Tag = event.tags.find(tag => tag[0] === 'bolt11');
+                        if (bolt11Tag && bolt11Tag[1] === window.currentInvoice) {
+                            console.log('Zap receipt found matching our bolt11 invoice:', event.id);
+                            sub.unsub();
+                            resolve(event);
+                        }
+                    });
+
+                    sub.on('eose', () => {
+                        console.log('End of stored events reached, continuing to listen for new events...');
+                    });
+                });
+            }
+
+            // Wait for zap receipt and show button to post note
+            async waitForZapReceiptAndShowButton(recipientPubkey, amount, message, podcastGuid, itemGuid, feedLink, itemLink, zapRequest, lnurl, statusMessage = 'Monitoring Nostr for zap receipt...') {
+                try {
+                    // Update waiting dialog content
+                    const waitingDialog = document.getElementById('waitingDialog');
+                    const waitingText = waitingDialog.querySelector('p:last-child');
+                    waitingText.innerHTML = `<strong>${statusMessage}</strong>`;
+                    
+                    const zapReceipt = await this.waitForZapReceipt(zapRequest, recipientPubkey, lnurl);
+                    
+                    if (zapReceipt) {
+                        this.handleZapReceiptFound(zapReceipt);
+                    } else {
+                        waitingText.innerHTML = '<strong>Still waiting for zap receipt...</strong>';
+                        this.showPostNoteButton();
+                    }
+                } catch (error) {
+                    this.handleZapReceiptError(error);
+                }
+            }
+
+            // Handle successful zap receipt
+            handleZapReceiptFound(zapReceipt) {
+                hideWaitingDialog();
+                showWebLNStatus('Zap receipt received! You can now post a note to Nostr.', 'success');
+                displayZapReceiptJson(zapReceipt);
+                window.currentZapReceipt = zapReceipt;
+                this.showPostNoteButton();
+            }
+
+            // Handle zap receipt error
+            handleZapReceiptError(error) {
+                console.error('Error with zap receipt:', error);
+                hideWaitingDialog();
+                showWebLNStatus('Error waiting for zap receipt. You can still post a note manually.', 'error');
+                this.showPostNoteButton();
+            }
+
+            // Show button to post note
+            showPostNoteButton() {
+                const noteContainer = document.getElementById('noteContainer');
+                noteContainer.style.display = 'block';
+            }
+
+            // Main zap sending function
+            async sendZap(lightningAddress, amount, message = '', podcastGuid, itemGuid, feedLink, itemLink) {
+                try {
+                    // Step 1: Resolve lightning address
+                    showStatus('Resolving lightning address...', 'info');
+                    const lnurlData = await this.resolveLightningAddress(lightningAddress);
+                    
+                    if (!lnurlData.allowsNostr || !lnurlData.nostrPubkey) {
+                        throw new Error('This lightning address does not support Nostr zaps');
+                    }
+
+                    // Step 2: Create zap request
+                    showStatus('Creating zap request...', 'info');
+                    const zapRequest = this.createZapRequest(
+                        lnurlData.nostrPubkey,
+                        amount,
+                        message,
+                        lightningAddress,
+                        podcastGuid,
+                        itemGuid,
+                        feedLink,
+                        itemLink
+                    );
+
+                    // Step 3: Get Lightning invoice
+                    showStatus('Generating Lightning invoice...', 'info');
+                    const invoice = await this.getZapInvoice(lnurlData, zapRequest, amount);
+
+                    // Step 4: Display invoice for payment
+                    showStatus('Invoice generated! You can pay with WebLN or copy the invoice.', 'success');
+                    displayInvoice(invoice, lnurlData.nostrPubkey, amount, message, podcastGuid, itemGuid, feedLink, itemLink, zapRequest, lightningAddress);
+
+                } catch (error) {
+                    console.error('Error sending zap:', error);
+                    showStatus(`Error: ${error.message}`, 'error');
+                }
+            }
+
+        }
+
+        // Post a note to Nostr after successful zap
+        async function postZapNote() {
+                try {
+                    // Get stored values
+                    const recipientPubkey = window.currentRecipientPubkey;
+                    const amount = window.currentAmount;
+                    const message = window.currentMessage;
+                    const podcastGuid = window.currentPodcastGuid;
+                    const itemGuid = window.currentItemGuid;
+                    const feedLink = window.currentFeedLink;
+                    const itemLink = window.currentItemLink;
+                    const zapRequest = window.currentZapRequest;
+                    const zapReceipt = window.currentZapReceipt;
+                    
+                    // Use the same key pair that was used for the zap request
+                    const privateKey = window.currentPrivateKey;
+                    const publicKey = window.currentPublicKey;
+                    
+                    let noteContent, eventTags;
+                    
+                    if (zapReceipt) {
+                        // Create nevent reference to the zap receipt
+                        const zapNevent = NostrTools.nip19.neventEncode({
+                            id: zapReceipt.id,
+                            author: zapReceipt.pubkey,
+                            relays: zapSender.relays.filter(relay => relay.startsWith('wss://'))
+                        });
+                        
+                        noteContent = `⚡ Zap boost ${amount} sats to "Kurtisdrums" by Kurtisdrums${message ? `: ${message}` : ''} nostr:${zapNevent}`;
+                        eventTags = [
+                        ];
+                        
+                        console.log('Zap receipt nevent:', zapNevent);
+                    } else {
+                        // Fallback to referencing zap request if receipt not found
+                        const zapRequestNevent = NostrTools.nip19.neventEncode({
+                            id: zapRequest.id,
+                            author: zapRequest.pubkey,
+                            relays: zapSender.relays.filter(relay => relay.startsWith('wss://'))
+                        });
+                        
+                        noteContent = `⚡ Zap boost ${amount} sats to "Kurtisdrums" by Kurtisdrums${message ? `: ${message}` : ''} nostr:${zapRequestNevent}`;
+                        eventTags = [
+                        ];
+                        
+                        console.log('Using zap request as fallback');
+                    }
+                    
+                    // Create the note event
+                    const note = {
+                        kind: 1,
+                        created_at: Math.floor(Date.now() / 1000),
+                        content: noteContent,
+                        tags: eventTags,
+                        pubkey: publicKey,
+                        id: '',
+                        sig: ''
+                    };
+
+                    // Add required podcast tags
+                    note.tags.push(['k', 'podcast:item:guid']);
+                    note.tags.push(['i', `podcast:item:guid:${itemGuid}`, itemLink]);
+                    
+                    note.tags.push(['k', 'podcast:guid']);
+                    note.tags.push(['i', `podcast:guid:${podcastGuid}`, feedLink]);
+
+                    // Sign the note
+                    note.id = NostrTools.getEventHash(note);
+                    note.sig = NostrTools.signEvent(note, privateKey);
+
+                    // Display the note JSON before posting
+                    displayNoteJson(note);
+
+                    // Publish to relays
+                    const relays = zapSender.relays.filter(relay => relay.startsWith('wss://'));
+                    if (relays.length > 0) {
+                        await zapSender.pool.publish(relays, note);
+                        console.log('Zap note posted to Nostr:', note.id);
+                        
+                        // Generate nostrudel link
+                        const noteNevent = NostrTools.nip19.neventEncode({
+                            id: note.id,
+                            author: note.pubkey,
+                            relays: zapSender.relays.filter(relay => relay.startsWith('wss://'))
+                        });
+                        const nostrudel = `https://nostrudel.ninja/#/n/${noteNevent}`;
+                        
+                        // Hide the post note button and show completion message
+                        const postNoteBtn = document.getElementById('postNoteBtn');
+                        if (postNoteBtn) {
+                            postNoteBtn.style.display = 'none';
+                        }
+                        
+                        // Update the note container with completion message in Step 3
+                        const noteContainer = document.getElementById('noteContainer');
+                        const noteDescription = noteContainer.querySelector('p');
+                        noteDescription.innerHTML = `Note posted to Nostr successfully! 🎉 <a href="${nostrudel}" target="_blank" style="color: #0066cc; text-decoration: underline;">View on nostrudel</a>`;
+                        noteDescription.style.background = '#d4edda';
+                        noteDescription.style.border = '1px solid #c3e6cb';
+                        noteDescription.style.borderRadius = '8px';
+                        noteDescription.style.padding = '15px';
+                        noteDescription.style.color = '#155724';
+                    }
+                } catch (error) {
+                    console.error('Error posting zap note:', error);
+                    showWebLNStatus(`Failed to post note: ${error.message}`, 'error');
+                }
+        }
+
+    // UI Helper Functions
+    function showStatus(message, type, elementId = 'status') {
+        const statusDiv = document.getElementById(elementId);
+        statusDiv.className = elementId === 'weblnStatus' ? `webln-status ${type}` : `status ${type}`;
+        statusDiv.innerHTML = message;
+        statusDiv.style.display = 'block';
+        
+        // Show retry button if WebLN is not available
+        if (elementId === 'weblnStatus' && type === 'error' && message.includes('not available')) {
+            document.getElementById('retryWebln').style.display = 'inline-block';
+        } else if (elementId === 'weblnStatus') {
+            document.getElementById('retryWebln').style.display = 'none';
+        }
+    }
+
+    function showWebLNStatus(message, type) {
+        showStatus(message, type, 'weblnStatus');
+    }
+
+    function hideWaitingDialog() {
+        const waitingDialog = document.getElementById('waitingDialog');
+        waitingDialog.style.display = 'none';
+    }
+
+    function toggleJsonDisplay(elementId) {
+        const element = document.getElementById(elementId);
+        if (element.style.display === 'none') {
+            element.style.display = 'block';
+        } else {
+            element.style.display = 'none';
+        }
+    }
+
+    function displayJson(data, contentId, toggleId = null, showByDefault = false) {
+        const content = document.getElementById(contentId);
+        content.textContent = JSON.stringify(data, null, 2);
+        
+        if (toggleId) {
+            const toggle = document.getElementById(toggleId);
+            if (toggle) {
+                toggle.style.display = 'inline-block';
+            }
+            
+            if (showByDefault) {
+                const containerId = contentId.replace('Content', 'Json');
+                const container = document.getElementById(containerId);
+                if (container) {
+                    container.style.display = 'block';
+                }
+            }
+        }
+    }
+
+    function displayZapRequestJson(zapRequest) {
+        displayJson(zapRequest, 'zapRequestContent');
+    }
+
+    function displayZapReceiptJson(zapReceipt) {
+        displayJson(zapReceipt, 'zapReceiptContent', 'zapReceiptToggle');
+    }
+
+    function displayNoteJson(note) {
+        displayJson(note, 'noteContent', 'noteToggle', true);
+    }
+
+    function storeSessionData(data) {
+        Object.entries(data).forEach(([key, value]) => {
+            window[`current${key.charAt(0).toUpperCase() + key.slice(1)}`] = value;
+        });
+    }
+
+    function displayInvoice(invoice, recipientPubkey, amount, message, podcastGuid, itemGuid, feedLink, itemLink, zapRequest, lnurl) {
+        const waitingDialog = document.getElementById('waitingDialog');
+        const paymentContainer = document.getElementById('paymentContainer');
+        const invoiceDetails = document.getElementById('invoiceDetails');
+        const payWithWeblnBtn = document.getElementById('payWithWebln');
+        
+        // Show waiting dialog first
+        waitingDialog.style.display = 'block';
+        
+        // Display invoice text
+        invoiceDetails.textContent = invoice;
+        
+        // Display zap request JSON
+        displayZapRequestJson(zapRequest);
+        
+        // Enable/disable WebLN button based on availability
+        console.log('WebLN available:', zapSender.weblnAvailable);
+        if (zapSender.weblnAvailable) {
+            payWithWeblnBtn.disabled = false;
+            payWithWeblnBtn.textContent = 'Pay with WebLN ⚡';
+            console.log('WebLN is available, not starting automatic monitoring');
+        } else {
+            payWithWeblnBtn.disabled = true;
+            payWithWeblnBtn.textContent = 'WebLN Not Available';
+            console.log('WebLN not available, setting up automatic monitoring in 2 seconds');
+            
+            // For non-WebLN users, automatically start listening for zap receipts
+            // since we can't detect when they manually pay the invoice
+            setTimeout(() => {
+                console.log('Calling waitForZapReceiptAndShowButton from non-WebLN timeout');
+                zapSender.waitForZapReceiptAndShowButton(recipientPubkey, amount, message, podcastGuid, itemGuid, feedLink, itemLink, zapRequest, lnurl);
+            }, 2000); // Give user 2 seconds to see the invoice first
+        }
+        
+        // Show payment container
+        paymentContainer.style.display = 'block';
+        
+        // Store current session data
+        storeSessionData({
+            invoice, recipientPubkey, amount, message, 
+            podcastGuid, itemGuid, feedLink, itemLink, 
+            zapRequest, lnurl
+        });
+    }
+
+    function copyInvoice() {
+        if (window.currentInvoice) {
+            navigator.clipboard.writeText(window.currentInvoice).then(() => {
+                showStatus('Invoice copied to clipboard!', 'success');
+            }).catch(() => {
+                showStatus('Failed to copy invoice', 'error');
+            });
+        }
+    }
+
+    async function payWithWebln() {
+        if (!window.currentInvoice) {
+            showWebLNStatus('No invoice available to pay', 'error');
+            return;
+        }
+
+        const payBtn = document.getElementById('payWithWebln');
+        const originalText = payBtn.textContent;
+        
+        try {
+            setButtonLoading(payBtn, true, 'Paying...');
+            showWebLNStatus('Processing payment...', 'info');
+            
+            await zapSender.payInvoice(
+                window.currentInvoice, window.currentRecipientPubkey, window.currentAmount,
+                window.currentMessage, window.currentPodcastGuid, window.currentItemGuid,
+                window.currentFeedLink, window.currentItemLink, window.currentZapRequest,
+                window.currentLnurl
+            );
+            
+            showWebLNStatus('Payment successful! Zap sent! 🎉', 'success');
+            showStatus('Zap sent successfully!', 'success');
+            
+        } catch (error) {
+            showWebLNStatus(`Payment failed: ${error.message}`, 'error');
+            console.error('WebLN payment error:', error);
+        } finally {
+            setButtonLoading(payBtn, false, originalText);
+        }
+    }
+
+    async function retryWebLN() {
+        showWebLNStatus('Retrying WebLN detection...', 'info');
+        
+        try {
+            await zapSender.initWebLN();
+            
+            // Update the pay button state
+            const payBtn = document.getElementById('payWithWebln');
+            if (zapSender.weblnAvailable) {
+                payBtn.disabled = false;
+                payBtn.textContent = 'Pay with WebLN ⚡';
+            } else {
+                payBtn.disabled = true;
+                payBtn.textContent = 'WebLN Not Available';
+            }
+        } catch (error) {
+            console.error('WebLN retry failed:', error);
+            showWebLNStatus('WebLN retry failed. Please refresh the page.', 'error');
+        }
+    }
+
+    // Initialize the zap sender
+    const zapSender = new NostrZapSender();
+
+    // Handle form submission
+    document.getElementById('zapForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = getFormData();
+        if (!validateFormData(formData)) return;
+        
+        const sendBtn = document.getElementById('sendBtn');
+        setButtonLoading(sendBtn, true, 'Creating Zap Request...');
+        hideContainers(['paymentContainer', 'waitingDialog', 'noteContainer']);
+        
+        try {
+            await zapSender.sendZap(formData.lightningAddress, formData.amount, formData.message, 
+                                    formData.podcastGuid, formData.itemGuid, formData.feedLink, formData.itemLink);
+        } catch (error) {
+            console.error('Zap failed:', error);
+        } finally {
+            setButtonLoading(sendBtn, false, 'Create Zap Request ⚡');
+        }
+    });
+
+    function getFormData() {
+        return {
+            lightningAddress: document.getElementById('lightningAddress').value.trim(),
+            amount: parseInt(document.getElementById('amount').value),
+            message: document.getElementById('message').value.trim(),
+            podcastGuid: document.getElementById('podcastGuid').value.trim(),
+            itemGuid: document.getElementById('itemGuid').value.trim(),
+            feedLink: document.getElementById('feedLink').value.trim(),
+            itemLink: document.getElementById('itemLink').value.trim()
+        };
+    }
+
+    function validateFormData(data) {
+        if (!data.lightningAddress || !data.amount || !data.podcastGuid || !data.itemGuid) {
+            showStatus('Please fill in all required fields', 'error');
+            return false;
+        }
+        if (data.amount < 1) {
+            showStatus('Amount must be at least 1 satoshi', 'error');
+            return false;
+        }
+        return true;
+    }
+
+    function setButtonLoading(button, isLoading, text) {
+        button.disabled = isLoading;
+        button.innerHTML = isLoading ? `<span class="loading"></span>${text}` : text;
+    }
+
+    function hideContainers(containerIds) {
+        containerIds.forEach(id => {
+            document.getElementById(id).style.display = 'none';
+        });
+    }
+
+    // Add some example addresses for testing
+    document.getElementById('lightningAddress').addEventListener('focus', function() {
+        if (!this.value) {
+            showStatus('Try: hello@getalby.com or other Lightning addresses that support zaps', 'info');
+        }
+    });
+    </script>
+</body>
+</html>
